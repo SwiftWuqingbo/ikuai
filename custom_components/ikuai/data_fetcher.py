@@ -366,6 +366,42 @@ class DataFetcher:
         else:
             self._data["mac_control"] = ""
         return
+
+
+    async def _get_ikuai_port_control(self, sess_key):
+        header = {
+            'Cookie': 'Cookie: username=admin; login=1; sess_key='+sess_key,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Encoding': 'gzip, deflate',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Content-Type': 'application/json;charset=UTF-8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.40 Safari/537.36',
+        }
+        
+        json_body = {"func_name":"dnat","action":"show","param":{"TYPE":"total,data","limit":"0,100","ORDER_BY":"","ORDER":""}}
+        
+
+        url =  self._host + ACTION_URL
+        _LOGGER.debug("Requests remaining: %s: %s", url, json_body)
+        try:
+            async with timeout(10): 
+                resdata = await self._hass.async_add_executor_job(self.requestpost_json, url, header, json_body)
+        except (
+            ClientConnectorError
+        ) as error:
+            raise UpdateFailed(error)        
+        _LOGGER.debug(resdata)
+        if resdata == 401:
+            self._data = 401
+            return
+        if resdata["Result"] == 10014:
+            self._data = 401
+            return            
+        if resdata["Data"].get("data"):
+            self._data["port_control"] = resdata["Data"].get("data")
+        else:
+            self._data["port_control"] = ""
+        return
         
         
     async def _get_ikuai_device_tracker(self, sess_key, macaddress, disconnect_refresh_times):
@@ -459,6 +495,7 @@ class DataFetcher:
             asyncio.create_task(self._get_ikuai_waninfo(sess_key)),
             asyncio.create_task(self._get_ikuai_wan6info(sess_key)),
             asyncio.create_task(self._get_ikuai_mac_control(sess_key)),
+            asyncio.create_task(self._get_ikuai_port_control(sess_key)),
         ]
         await asyncio.gather(*tasks)
        
